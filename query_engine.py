@@ -13,7 +13,7 @@ def prompt_to_sql(prompt):
     }
 
     body = {
-        "model": "mistralai/mixtral-8x7b",  # You can switch to Claude, LLaMA, etc.
+        "model": "openrouter/auto",  # You can switch to Claude, LLaMA, etc.
         "messages": [
             {
                 "role": "system",
