@@ -17,7 +17,7 @@ def prompt_to_sql(prompt):
     }
 
     body = {
-        "model": "openrouter/auto",  # Let OpenRouter pick the best working model
+        "model": "anthropic/claude-3-sonnet",  # Let OpenRouter pick the best working model
         "messages": [
             {
                 "role": "system",
