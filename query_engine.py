@@ -3,9 +3,13 @@ import sqlite3
 import pandas as pd
 import requests
 
-# Prompt → SQL using OpenRouter LLM
+# Convert question → SQL using OpenRouter
 def prompt_to_sql(prompt):
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+    if not OPENROUTER_API_KEY:
+        print("❌ OPENROUTER_API_KEY is missing.")
+        return "SELECT 'Missing OpenRouter API key' AS error;"
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -13,15 +17,15 @@ def prompt_to_sql(prompt):
     }
 
     body = {
-        "model": "openrouter/auto",  # You can switch to Claude, LLaMA, etc.
+        "model": "openrouter/auto",  # Let OpenRouter pick the best working model
         "messages": [
             {
                 "role": "system",
-                "content": """You are a helpful assistant. Convert the user's question into a syntactically correct SQLite SQL query using:
+                "content": """You are a helpful SQL assistant. Convert the user's question into a syntactically correct SQLite SQL query using:
 - ad_sales(date, item_id, ad_sales, impressions, ad_spend, clicks, units_sold)
 - total_sales(date, item_id, total_sales, total_units_ordered)
 - eligibility(eligibility_datetime_utc, item_id, eligibility, message)
-Only return the SQL query."""
+ONLY return the SQL query. No explanation."""
             },
             {"role": "user", "content": prompt}
         ]
@@ -29,26 +33,33 @@ Only return the SQL query."""
 
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=body)
-        result = response.json()
-        return result["choices"][0]["message"]["content"].strip("```sql").strip("```")
+        json_data = response.json()
+
+        if "choices" in json_data:
+            sql_text = json_data["choices"][0]["message"]["content"]
+            return sql_text.strip("```sql").strip("```")
+
+        print("❌ OpenRouter failed response:", json_data)
+        return "SELECT 'OpenRouter API failed - check key/quota/model' AS error;"
+
     except Exception as e:
-        print("OpenRouter error:", e)
-        return "SELECT 'OpenRouter API failed' AS error;"
+        print("❌ OpenRouter Exception:", e)
+        return "SELECT 'OpenRouter request crashed' AS error;"
 
 
-# SQL → Pandas DataFrame
+# Run SQL on the database
 def run_sql(sql):
     try:
-        conn = sqlite3.connect("ecom.db")  # relative path for GitHub/Streamlit Cloud
+        conn = sqlite3.connect("ecom.db")
         df = pd.read_sql_query(sql, conn)
         conn.close()
         return df
     except Exception as e:
-        print("SQLite error:", e)
+        print("❌ SQLite Error:", e)
         return pd.DataFrame()
 
 
-# Final connector for streamlit_app.py
+# Main agent function
 def ask_question(question):
     sql = prompt_to_sql(question)
     df = run_sql(sql)
